@@ -132,7 +132,7 @@ int main() {
 		glm::vec3(1.5f,  0.2f, -1.5f),
 		glm::vec3(-1.3f,  1.0f, -1.5f)
 	};
-
+	glm::vec3 lightPos(1.2f, 1.0f, 2.0f);
 	/*
 	* INITIALIZE OPENGL WINDOW
 	*/
@@ -175,17 +175,21 @@ int main() {
 
 
 	//make a vertex array object too (research this more)
-	unsigned int VAO;
+	unsigned int VBO, VAO;
 	glGenVertexArrays(1, &VAO);
+	glGenBuffers(1, &VBO);
+
 	glBindVertexArray(VAO);
 
-
-	//create vertex buffer object to pass vertex data to our gpu
-	unsigned int VBO;
-	glGenBuffers(1, &VBO);
-	//if an access violation occurs, it's because glad is trying to call glad_glbindbuffer, but there is no context for it to call the function to. Just make sure the window and glad stuff are handled before this part
 	glBindBuffer(GL_ARRAY_BUFFER, VBO);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+	glEnableVertexAttribArray(0);
+
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+	glEnableVertexAttribArray(1);
+
 
 	/*
 	//create an EBO
@@ -496,9 +500,6 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 		else {
 			std::cout << "Mix Percentage 0!" << std::endl;
 		}
-	}
-	else if (key == GLFW_KEY_W && action == GLFW_PRESS) {
-
 	}
 }
 bool firstMouse = true;
