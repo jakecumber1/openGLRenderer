@@ -146,7 +146,8 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="fragment.glsl" />
-    <None Include="lightFragment.glsl" />
+    <None Include="lightColorVertex.glsl" />
+    <None Include="lightColorFrag.glsl" />
     <None Include="vertex.glsl" />
   </ItemGroup>
   <ItemGroup>
