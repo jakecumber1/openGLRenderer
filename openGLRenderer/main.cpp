@@ -217,11 +217,13 @@ int main() {
 	Shader lightShader("lightColorVertex.glsl", "lightColorFrag.glsl");
 
 	//load in our texture and assign diffuseMap
-	unsigned int diffuseMap = loadTexture("container2.png");
+	unsigned int diffuseMap = loadTexture("resources/container2.png");
 	lightShader.use();
 	lightShader.setInt("material.diffuse", 0);
-	unsigned int specularMap = loadTexture("container2_specularv2.png");
+	unsigned int specularMap = loadTexture("resources/container2_specularv2.png");
 	lightShader.setInt("material.specular", 1);
+	unsigned int emissionMap = loadTexture("resources/matrix.jpg");
+	lightShader.setInt("material.emission", 2);
 	//Tell open gl how to read our vertex data
 	/* arguments
 	* 1st: the vertex attribute we want to configure, the position was specified with the shader (layout (location = 0))
@@ -414,6 +416,9 @@ int main() {
 
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_2D, specularMap);
+
+		glActiveTexture(GL_TEXTURE2);
+		glBindTexture(GL_TEXTURE_2D, emissionMap);
 
 		glBindVertexArray(VAO);
 		glDrawArrays(GL_TRIANGLES, 0, 36);

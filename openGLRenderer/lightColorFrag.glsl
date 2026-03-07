@@ -5,6 +5,8 @@ struct Material {
 	sampler2D diffuse;
 	//Specular map of the material surface
 	sampler2D specular;
+	//Emission map which dictates when objects glow
+	sampler2D emission;
 	//impacts scattering/radius of the specular highlight
 	float shininess;
 };
@@ -56,7 +58,10 @@ void main()
 	float spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
 	vec3 specular = light.specular * spec * texture(material.specular, TexCoords).rgb;
 
+	//Emission Component
+	vec3 emission = texture(material.emission, TexCoords).rgb;
+
 	//result is just the ambient + diffuse light multiplied by the color of the object (so that the light can affect the color of the object)
-	vec3 result = (ambient + diffuse + specular);
+	vec3 result = (ambient + diffuse + specular + emission);
 	FragColor = vec4(result, 1.0);
 }
