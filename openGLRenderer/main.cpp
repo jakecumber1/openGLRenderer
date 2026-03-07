@@ -220,6 +220,8 @@ int main() {
 	unsigned int diffuseMap = loadTexture("container2.png");
 	lightShader.use();
 	lightShader.setInt("material.diffuse", 0);
+	unsigned int specularMap = loadTexture("container2_specularv2.png");
+	lightShader.setInt("material.specular", 1);
 	//Tell open gl how to read our vertex data
 	/* arguments
 	* 1st: the vertex attribute we want to configure, the position was specified with the shader (layout (location = 0))
@@ -409,6 +411,9 @@ int main() {
 		//bind diffuse map
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, diffuseMap);
+
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, specularMap);
 
 		glBindVertexArray(VAO);
 		glDrawArrays(GL_TRIANGLES, 0, 36);

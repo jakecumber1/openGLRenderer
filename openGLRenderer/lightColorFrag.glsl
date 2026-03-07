@@ -3,8 +3,8 @@ struct Material {
 	//ambient unnecessary since it's now equal to diffuse now that ambient is controlled with the light directly
 	//the diffuse map of the material
 	sampler2D diffuse;
-	//Color of the specular highlight on the surface
-	vec3 specular;
+	//Specular map of the material surface
+	sampler2D specular;
 	//impacts scattering/radius of the specular highlight
 	float shininess;
 };
@@ -54,7 +54,7 @@ void main()
 	//finally calculate the component
 	//32, the power we selected, is acting as our "shininess" value for the object
 	float spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
-	vec3 specular = light.specular * (spec * material.specular);
+	vec3 specular = light.specular * spec * texture(material.specular, TexCoords).rgb;
 
 	//result is just the ambient + diffuse light multiplied by the color of the object (so that the light can affect the color of the object)
 	vec3 result = (ambient + diffuse + specular);
