@@ -1,9 +1,8 @@
 #version 330 core
 struct Material {
-	//color the material reflect in ambient light (usually the color of the object itself)
-	vec3 ambient;
-	//color the material reflects in diffuse lighting (once again, usually the color of the object itself)
-	vec3 diffuse;
+	//ambient unnecessary since it's now equal to diffuse now that ambient is controlled with the light directly
+	//the diffuse map of the material
+	sampler2D diffuse;
 	//Color of the specular highlight on the surface
 	vec3 specular;
 	//impacts scattering/radius of the specular highlight
@@ -27,23 +26,25 @@ uniform Light light;
 
 in vec3 Normal;
 in vec3 FragPos;
+in vec2 TexCoords;
 
 out vec4 FragColor;
 
 uniform vec3 viewPos;
 
+
 void main()
 {
 	//Define ambient lighting
 	//ambient lighting is just a constant light applied to all objects in a scene
-	vec3 ambient = light.ambient * material.ambient;
+	vec3 ambient = light.ambient * texture(material.diffuse, TexCoords).rgb;
 	//diffuse impact on light is the dot product between norm and light direction vectors
 	//if our angle is greater than 90 we would end up with a negative component (which would result in negative colors), so we clamp the value to 0.0
 	vec3 norm = normalize(Normal);
 	vec3 lightDir = normalize(light.position - FragPos);
 	float diff = max(dot(norm, lightDir), 0.0);
 	//get the diffuse component of the light by multiplying the diffuse strength with the light color
-	vec3 diffuse =  light.diffuse * (diff * material.diffuse);
+	vec3 diffuse =  light.diffuse * diff * texture(material.diffuse, TexCoords).rgb;
 
 	//Now specular lighting component
 	vec3 viewDir = normalize(viewPos - FragPos);

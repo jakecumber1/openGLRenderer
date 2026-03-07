@@ -1,6 +1,7 @@
 #version 330 core
 layout(location = 0) in vec3 aPos;
 layout(location = 1) in vec3 aNormal;
+layout(location = 2) in vec2 aTexCoords;
 
 uniform mat4 model;
 uniform mat4 view;
@@ -8,6 +9,7 @@ uniform mat4 projection;
 
 out vec3 Normal;
 out vec3 FragPos;
+out vec2 TexCoords;
 
 void main()
 {
@@ -16,4 +18,5 @@ void main()
 	//This creates a 3x3 normal matrix, which will allow us to do non uniform scaling while keeping the normal vector perp to the surface
 	//inverse operations are costly, so try to limit their use
 	Normal = mat3(transpose(inverse(model))) * aNormal;
+	TexCoords = aTexCoords;
 }
