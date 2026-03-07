@@ -345,12 +345,29 @@ int main() {
 
 		//lighting shader use
 		lightShader.use();
-		int objColorLoc = glGetUniformLocation(lightShader.ID, "objectColor");
-		int lightColorLoc = glGetUniformLocation(lightShader.ID, "lightColor");
-		int lightPosLoc = glGetUniformLocation(lightShader.ID, "lightPos");
-		glUniform3f(objColorLoc, 1.0f, 0.5f, 0.31f);
-		glUniform3f(lightColorLoc, 1.0f, 1.0f, 1.0f);
-		glUniform3f(lightPosLoc, lightPos.x, lightPos.y, lightPos.z);
+		int viewPosLoc = glGetUniformLocation(lightShader.ID, "viewPos");
+		lightShader.setVec3("material.ambient", 1.0f, 0.5f, 0.31f);
+		lightShader.setVec3("material.diffuse", 1.0f, 0.5f, 0.31f);
+		lightShader.setVec3("material.specular", 0.5f, 0.5f, 0.5f);
+		lightShader.setFloat("material.shininess", 32.0f);
+		lightShader.setVec3("light.position", lightPos.x, lightPos.y, lightPos.z);
+		lightShader.setVec3("light.ambient", 0.2f, 0.2f, 0.2f);
+		lightShader.setVec3("light.diffuse", 0.5f, 0.5f, 0.5f);
+		lightShader.setVec3("light.specular", 1.0f, 1.0f, 1.0f);
+
+		glm::vec3 lightColor;
+		lightColor.x = sin(glfwGetTime() * 2.0f);
+		lightColor.y = sin(glfwGetTime() * 0.7f);
+		lightColor.z = sin(glfwGetTime() * 1.3f);
+		glm::vec3 diffuseColor = lightColor * glm::vec3(0.5f);
+		glm::vec3 ambientColor = diffuseColor * glm::vec3(0.2f);
+		lightShader.setVec3("light.ambient", ambientColor);
+		lightShader.setVec3("light.diffuse", diffuseColor);
+
+		//grab the camera's position within the loop, the light's position is defined outside the loop since it isn't moving around
+		glm::vec3 viewPos = camera.cameraPos;
+		glUniform3f(viewPosLoc, viewPos.x, viewPos.y, viewPos.z);
+
 		//bind textures and swap to the cube shaders
 		//glActiveTexture(GL_TEXTURE0);
 		//glBindTexture(GL_TEXTURE_2D, texture1);

@@ -7,6 +7,7 @@
 #include<fstream>
 #include <sstream>
 #include<string>
+#include <glm/glm.hpp>
 /*
 * TODO: transfer this function code to c++ file to avoid setting off the ODR for multiple includes
 */
@@ -100,6 +101,14 @@ public:
 	}
 	void setFloat(const std::string& name, float value) const {
 		glUniform1f(glGetUniformLocation(ID, name.c_str()), value);
+	}
+	void setVec3(const std::string& name, float x, float y, float z) const
+	{
+		glUniform3f(glGetUniformLocation(ID, name.c_str()), x, y, z);
+	}
+	void setVec3(const std::string& name, glm::vec3 vec) const
+	{
+		glUniform3f(glGetUniformLocation(ID, name.c_str()), vec.x, vec.y, vec.z);
 	}
 };
 #endif
