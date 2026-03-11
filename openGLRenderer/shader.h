@@ -110,5 +110,9 @@ public:
 	{
 		glUniform3f(glGetUniformLocation(ID, name.c_str()), vec.x, vec.y, vec.z);
 	}
+	void setMat4(const std::string& name, glm::mat4 mat) const {
+		//this gl function is expecting a continguous array of floats, which is why we point to the arrays first value
+		glUniformMatrix4fv(glGetUniformLocation(ID, name.c_str()), 1, GL_FALSE, &mat[0][0]);
+	}
 };
 #endif

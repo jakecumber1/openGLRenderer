@@ -65,8 +65,8 @@ int respond_to_mix_change = 0;
 float mix_percentage = 0.2f;
 
 
-const int WIDTH = 800;
-const int HEIGHT = 600;
+const int WIDTH = 1920;
+const int HEIGHT = 1080;
 
 int main() {
 
@@ -136,6 +136,7 @@ int main() {
 		glm::vec3(-1.3f,  1.0f, -1.5f)
 	};
 	glm::vec3 lightPos(1.2f, 1.0f, 2.0f);
+	glm::vec3 lightDir(-0.2f, -1.0f, -0.3f);
 	/*
 	* INITIALIZE OPENGL WINDOW
 	*/
@@ -219,6 +220,7 @@ int main() {
 	//load in our texture and assign diffuseMap
 	unsigned int diffuseMap = loadTexture("resources/container2.png");
 	lightShader.use();
+	//This tells our shader which texture unit to use for each map.
 	lightShader.setInt("material.diffuse", 0);
 	unsigned int specularMap = loadTexture("resources/container2_specularv2.png");
 	lightShader.setInt("material.specular", 1);
@@ -249,7 +251,7 @@ int main() {
 	*/
 	//give opengl the size of our rendering window, so it scales data and coordinates with respect to the window
 	// 0, 0 are the x, y coordinates of the start of the window, 800, 600 is the width and height
-	glViewport(0, 0, 800, 600);
+	glViewport(0, 0, 1920, 1080);
 	
 
 	//have the window and viewport fix itself with a callback function each time the window is resized
@@ -345,11 +347,14 @@ int main() {
 	float currentFrame = 0.0f; //time of current frame
 	float deltaTime = 0.0f;	//time between current frame and last frame
 	float lastFrame = 0.0f; //time of last frame
+	bool useSun = false;
+	bool usePoint = false;
+	bool useSpot = true;
 	/*
 	* RENDER LOOP, each interation of this following loop is a frame
 	*/	
 	while (!glfwWindowShouldClose(window)) {
-		//calculate frame logic
+		//calculate time variables
 		currentFrame = static_cast<float>(glfwGetTime());
 		deltaTime = currentFrame - lastFrame;
 		lastFrame = currentFrame;
@@ -361,14 +366,39 @@ int main() {
 
 		//lighting shader use
 		lightShader.use();
+		lightShader.setBool("useSun", useSun);
+		lightShader.setBool("usePoint", usePoint);
+		lightShader.setBool("useSpot", useSpot);
 		int viewPosLoc = glGetUniformLocation(lightShader.ID, "viewPos");
 		lightShader.setVec3("material.specular", 0.5f, 0.5f, 0.5f);
 		lightShader.setFloat("material.shininess", 64.0f);
-		lightShader.setVec3("light.position", lightPos.x, lightPos.y, lightPos.z);
-		lightShader.setVec3("light.ambient", 0.2f, 0.2f, 0.2f);
-		lightShader.setVec3("light.diffuse", 0.5f, 0.5f, 0.5f);
-		lightShader.setVec3("light.specular", 1.0f, 1.0f, 1.0f);
-
+		if (usePoint) {
+			lightShader.setVec3("light.position", lightPos.x, lightPos.y, lightPos.z);
+			lightShader.setVec3("light.ambient", 0.2f, 0.2f, 0.2f);
+			lightShader.setVec3("light.diffuse", 0.5f, 0.5f, 0.5f);
+			lightShader.setVec3("light.specular", 1.0f, 1.0f, 1.0f);
+			lightShader.setFloat("light.constant", 1.0f);
+			lightShader.setFloat("light.linear", 0.09f);
+			lightShader.setFloat("light.quadratic", 0.032f);
+		}
+		if (useSun) {
+			lightShader.setVec3("sun.direction", lightDir.x, lightDir.y, lightDir.z);
+			lightShader.setVec3("sun.ambient", 0.2f, 0.2f, 0.2f);
+			lightShader.setVec3("sun.diffuse", 0.5f, 0.5f, 0.5f);
+			lightShader.setVec3("sun.specular", 1.0f, 1.0f, 1.0f);
+		}
+		if (useSpot) {
+			lightShader.setVec3("flashlight.position", camera.cameraPos);
+			lightShader.setVec3("flashlight.direction", camera.cameraFront);
+			lightShader.setFloat("flashlight.cutOff", glm::cos(glm::radians(12.5f)));
+			lightShader.setFloat("flashlight.outerCutOff", glm::cos(glm::radians(17.5f)));
+			lightShader.setVec3("flashlight.ambient", 0.1f, 0.1f, 0.1f);
+			lightShader.setVec3("flashlight.diffuse", 0.8f, 0.8f, 0.8f);
+			lightShader.setVec3("flashlight.specular", 1.0f, 1.0f, 1.0f);
+			lightShader.setFloat("flashlight.constant", 1.0f);
+			lightShader.setFloat("flashlight.linear", 0.09f);
+			lightShader.setFloat("flashlight.quadratic", 0.032f);
+		}
 
 		//grab the camera's position within the loop, the light's position is defined outside the loop since it isn't moving around
 		glm::vec3 viewPos = camera.cameraPos;
@@ -394,7 +424,7 @@ int main() {
 
 		glm::mat4 view;
 		view = camera.getView();
-
+		glm::mat4 model;
 		/*
 		tying this all together, we should get something like this
 		view_clipped = M_project * M_view * M_model * local_coords
@@ -404,39 +434,42 @@ int main() {
 		glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
 		int projLoc = glGetUniformLocation(lightShader.ID, "projection");
 		glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projection));
-		glm::mat4 model = glm::mat4(1.0f);
-		model = glm::translate(model, cubePositions[0]);
-		//ensures a different angle for each cube
-		int modelLoc = glGetUniformLocation(lightShader.ID, "model");
-		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+		for (unsigned int i = 0; i < 10; i++)
+		{
+			model = glm::mat4(1.0f);
+			model = glm::translate(model, cubePositions[i]);
+			float angle = 20.0f * i;
+			model = glm::rotate(model, glm::radians(angle),
+				glm::vec3(1.0f, 0.3f, 0.5f));
+			lightShader.setMat4("model", model);
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, diffuseMap);
 
-		//bind diffuse map
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, diffuseMap);
-
-		glActiveTexture(GL_TEXTURE1);
-		glBindTexture(GL_TEXTURE_2D, specularMap);
-
-		glActiveTexture(GL_TEXTURE2);
-		glBindTexture(GL_TEXTURE_2D, emissionMap);
-
-		glBindVertexArray(VAO);
-		glDrawArrays(GL_TRIANGLES, 0, 36);
+			glActiveTexture(GL_TEXTURE1);
+			glBindTexture(GL_TEXTURE_2D, specularMap);
+			//commented out emission map because it made lighting hard notice
+			//glActiveTexture(GL_TEXTURE2);
+			//glBindTexture(GL_TEXTURE_2D, emissionMap);
+			glBindVertexArray(VAO);
+			glDrawArrays(GL_TRIANGLES, 0, 36);
+		}
 		//Now we spawn our light cube, which we will render with ourShader
-		ourShader.use();
-		//spawn our light cube
-		model = glm::mat4(1.0f);
-		model = glm::translate(model, lightPos);
-		model = glm::scale(model, glm::vec3(0.2f)); //make it smaller
-		//we need to redefine these uniforms since we switched shaders
-		modelLoc = glGetUniformLocation(ourShader.ID, "model");
-		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-		viewLoc = glGetUniformLocation(ourShader.ID, "view");
-		glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
-		projLoc = glGetUniformLocation(ourShader.ID, "projection");
-		glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projection));
-		glBindVertexArray(lightCubeVAO);
-		glDrawArrays(GL_TRIANGLES, 0, 36);
+		if (usePoint) {
+			ourShader.use();
+			//spawn our light cube
+			model = glm::mat4(1.0f);
+			model = glm::translate(model, lightPos);
+			model = glm::scale(model, glm::vec3(0.2f)); //make it smaller
+			//we need to redefine these uniforms since we switched shaders
+			int modelLoc = glGetUniformLocation(ourShader.ID, "model");
+			glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+			viewLoc = glGetUniformLocation(ourShader.ID, "view");
+			glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
+			projLoc = glGetUniformLocation(ourShader.ID, "projection");
+			glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projection));
+			glBindVertexArray(lightCubeVAO);
+			glDrawArrays(GL_TRIANGLES, 0, 36);
+		}
 		//RENDER COMMANDS END
 		//poll events checks if any events (like the window being resized) triggered and calls their corresponding function
 		glfwPollEvents();
