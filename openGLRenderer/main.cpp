@@ -11,6 +11,7 @@
 #include<fstream>
 #include <sstream>
 #include<string>
+#include <format>
 #include "shader.h"
 #include "Camera.h"
 
@@ -347,9 +348,15 @@ int main() {
 	float currentFrame = 0.0f; //time of current frame
 	float deltaTime = 0.0f;	//time between current frame and last frame
 	float lastFrame = 0.0f; //time of last frame
-	bool useSun = false;
-	bool usePoint = false;
-	bool useSpot = true;
+
+	glm::vec3 pointLightPositions[] = {
+		glm::vec3(0.7f, 0.2f, 2.0f),
+		glm::vec3(2.3f,-3.3f,-4.0f),
+		glm::vec3(-4.0f, 2.0f,-12.0f),
+		glm::vec3(0.0f, 0.0f,-3.0f)
+	};
+
+
 	/*
 	* RENDER LOOP, each interation of this following loop is a frame
 	*/	
@@ -360,49 +367,38 @@ int main() {
 		lastFrame = currentFrame;
 		processInput(window, &camera, deltaTime);
 		//RENDER COMMANDS START
-		glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+		glClearColor(0.75f, 0.52f, 0.3f, 1.0f);
 		//Clear both the color buffer AND the depth buffer now
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		//lighting shader use
 		lightShader.use();
-		lightShader.setBool("useSun", useSun);
-		lightShader.setBool("usePoint", usePoint);
-		lightShader.setBool("useSpot", useSpot);
-		int viewPosLoc = glGetUniformLocation(lightShader.ID, "viewPos");
+		lightShader.setVec3("viewPos", camera.cameraPos);
 		lightShader.setVec3("material.specular", 0.5f, 0.5f, 0.5f);
 		lightShader.setFloat("material.shininess", 64.0f);
-		if (usePoint) {
-			lightShader.setVec3("light.position", lightPos.x, lightPos.y, lightPos.z);
-			lightShader.setVec3("light.ambient", 0.2f, 0.2f, 0.2f);
-			lightShader.setVec3("light.diffuse", 0.5f, 0.5f, 0.5f);
-			lightShader.setVec3("light.specular", 1.0f, 1.0f, 1.0f);
-			lightShader.setFloat("light.constant", 1.0f);
-			lightShader.setFloat("light.linear", 0.09f);
-			lightShader.setFloat("light.quadratic", 0.032f);
+		for (int i = 0; i < 4; i++) {
+			lightShader.setVec3(("pointLights[" + std::to_string(i) + "].position"), pointLightPositions[i]);
+			lightShader.setVec3(("pointLights[" + std::to_string(i) + "].ambient"), 0.05f, 0.05f, 0.05f);
+			lightShader.setVec3(("pointLights[" + std::to_string(i) + "].diffuse"), 0.8f, 0.8f, 0.8f);
+			lightShader.setVec3(("pointLights[" + std::to_string(i) + "].specular"), 1.0f, 1.0f, 1.0f);
+			lightShader.setFloat(("pointLights[" + std::to_string(i) + "].constant"), 1.0f);
+			lightShader.setFloat(("pointLights[" + std::to_string(i) + "].linear"), 0.09f);
+			lightShader.setFloat(("pointLights[" + std::to_string(i) + "].quadratic"), 0.032f);
 		}
-		if (useSun) {
-			lightShader.setVec3("sun.direction", lightDir.x, lightDir.y, lightDir.z);
-			lightShader.setVec3("sun.ambient", 0.2f, 0.2f, 0.2f);
-			lightShader.setVec3("sun.diffuse", 0.5f, 0.5f, 0.5f);
-			lightShader.setVec3("sun.specular", 1.0f, 1.0f, 1.0f);
-		}
-		if (useSpot) {
-			lightShader.setVec3("flashlight.position", camera.cameraPos);
-			lightShader.setVec3("flashlight.direction", camera.cameraFront);
-			lightShader.setFloat("flashlight.cutOff", glm::cos(glm::radians(12.5f)));
-			lightShader.setFloat("flashlight.outerCutOff", glm::cos(glm::radians(17.5f)));
-			lightShader.setVec3("flashlight.ambient", 0.1f, 0.1f, 0.1f);
-			lightShader.setVec3("flashlight.diffuse", 0.8f, 0.8f, 0.8f);
-			lightShader.setVec3("flashlight.specular", 1.0f, 1.0f, 1.0f);
-			lightShader.setFloat("flashlight.constant", 1.0f);
-			lightShader.setFloat("flashlight.linear", 0.09f);
-			lightShader.setFloat("flashlight.quadratic", 0.032f);
-		}
-
-		//grab the camera's position within the loop, the light's position is defined outside the loop since it isn't moving around
-		glm::vec3 viewPos = camera.cameraPos;
-		glUniform3f(viewPosLoc, viewPos.x, viewPos.y, viewPos.z);
+		lightShader.setVec3("dirLight.direction", lightDir.x, lightDir.y, lightDir.z);
+		lightShader.setVec3("dirLight.ambient", 0.05f, 0.05f, 0.1f);
+		lightShader.setVec3("dirLight.diffuse", 0.2f, 0.2f, 0.7f);
+		lightShader.setVec3("dirLight.specular", 0.7f, 0.7f, 0.7f);
+		lightShader.setVec3("spotLight.position", camera.cameraPos);
+		lightShader.setVec3("spotLight.direction", camera.cameraFront);
+		lightShader.setFloat("spotLight.cutOff", glm::cos(glm::radians(12.5f)));
+		lightShader.setFloat("spotLight.outerCutOff", glm::cos(glm::radians(17.5f)));
+		lightShader.setVec3("spotLight.ambient", 0.0f, 0.0f, 0.0f);
+		lightShader.setVec3("spotLight.diffuse", 0.8f, 0.8f, 0.8f);
+		lightShader.setVec3("spotLight.specular", 0.8f, 0.8f, 0.8f);
+		lightShader.setFloat("spotLight.constant", 1.0f);
+		lightShader.setFloat("spotLight.linear", 0.09f);
+		lightShader.setFloat("spotLight.quadratic", 0.032f);
 
 		//bind textures and swap to the cube shaders
 		//glActiveTexture(GL_TEXTURE0);
@@ -434,6 +430,12 @@ int main() {
 		glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
 		int projLoc = glGetUniformLocation(lightShader.ID, "projection");
 		glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projection));
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, diffuseMap);
+
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, specularMap);
+		glBindVertexArray(VAO);
 		for (unsigned int i = 0; i < 10; i++)
 		{
 			model = glm::mat4(1.0f);
@@ -442,23 +444,14 @@ int main() {
 			model = glm::rotate(model, glm::radians(angle),
 				glm::vec3(1.0f, 0.3f, 0.5f));
 			lightShader.setMat4("model", model);
-			glActiveTexture(GL_TEXTURE0);
-			glBindTexture(GL_TEXTURE_2D, diffuseMap);
-
-			glActiveTexture(GL_TEXTURE1);
-			glBindTexture(GL_TEXTURE_2D, specularMap);
-			//commented out emission map because it made lighting hard notice
-			//glActiveTexture(GL_TEXTURE2);
-			//glBindTexture(GL_TEXTURE_2D, emissionMap);
-			glBindVertexArray(VAO);
 			glDrawArrays(GL_TRIANGLES, 0, 36);
 		}
 		//Now we spawn our light cube, which we will render with ourShader
-		if (usePoint) {
+		for (int i = 0; i < 4; i++) {
 			ourShader.use();
 			//spawn our light cube
 			model = glm::mat4(1.0f);
-			model = glm::translate(model, lightPos);
+			model = glm::translate(model, pointLightPositions[i]);
 			model = glm::scale(model, glm::vec3(0.2f)); //make it smaller
 			//we need to redefine these uniforms since we switched shaders
 			int modelLoc = glGetUniformLocation(ourShader.ID, "model");

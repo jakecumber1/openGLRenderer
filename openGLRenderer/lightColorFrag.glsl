@@ -13,7 +13,7 @@ struct Material {
 
 uniform Material material;
 //definition for point light
-struct Light {
+struct PointLight {
 	//position of the light
 	vec3 position;
 	//color and strength of ambient light
@@ -36,8 +36,12 @@ struct Light {
 	float linear;
 	float quadratic;
 };
+#define NR_POINT_LIGHTS 4
+
+
+uniform PointLight pointLights[NR_POINT_LIGHTS];
 //definition for directional light (like the sun)
-struct DirectionalLight {
+struct DirLight {
 	vec3 direction;
 	vec3 ambient;
 	vec3 diffuse;
@@ -82,13 +86,14 @@ struct SpotLight {
 	float quadratic;
 };
 
+//Function definitions
+//calculate direct Light
+vec3 CalcDirLight(DirLight light, vec3 normal, vec3 viewDir);
+vec3 CalcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir);
+vec3 CalcSpotLight(SpotLight light, vec3 normal, vec3 fragPos, vec3 viewDir);
 
-uniform Light light;
-uniform DirectionalLight sun;
-uniform SpotLight flashlight;
-uniform bool useSun;
-uniform bool usePoint;
-uniform bool useSpot;
+uniform DirLight dirLight;
+uniform SpotLight spotLight;
 
 in vec3 Normal;
 in vec3 FragPos;
@@ -101,113 +106,91 @@ uniform vec3 viewPos;
 
 void main()
 {
-	if (usePoint) {
-	//Define ambient lighting
-	//ambient lighting is just a constant light applied to all objects in a scene
-	vec3 ambient = light.ambient * texture(material.diffuse, TexCoords).rgb;
-	//diffuse impact on light is the dot product between norm and light direction vectors
-	//if our angle is greater than 90 we would end up with a negative component (which would result in negative colors), so we clamp the value to 0.0
+	//we want a final frag shader which basically does this
+	/*
+	
+	output += directionalLightCalc()
+	//account for every point light
+	for (int i = 0; i < nr_of_point_lights; i++) {
+		output += pointLightCalc(pointLights[i])
+	}
+	output += spotLightCalc()
+	FragColor = vec4(output, 1.0)
+	*/
+	//this will clean up our shader file, and allow us to place multiple lights
 	vec3 norm = normalize(Normal);
-	vec3 lightDir;
-	lightDir = normalize(light.position - FragPos);
-	float diff = max(dot(norm, lightDir), 0.0);
-	//get the diffuse component of the light by multiplying the diffuse strength with the light color
-	vec3 diffuse =  light.diffuse * diff * texture(material.diffuse, TexCoords).rgb;
-
-	//Now specular lighting component
 	vec3 viewDir = normalize(viewPos - FragPos);
-	//negate the lightDir vector, since the reflect function expects the dir vector to point FROM the light source to the fragment, but lightDir is currently pointing from frag toward the light
-	//Norm can be passed in as is
-	vec3 reflectDir = reflect(-lightDir, norm);
-	//finally calculate the component
-	//32, the power we selected, is acting as our "shininess" value for the object
+	vec3 output = CalcDirLight(dirLight, norm, viewDir);
+	//point lights
+	for (int i = 0; i < NR_POINT_LIGHTS; i++) {
+		output += CalcPointLight(pointLights[i], norm, FragPos, viewDir);
+	}
+
+	//finally SpotLight
+	output += CalcSpotLight(spotLight, norm, FragPos, viewDir);
+	FragColor = vec4(output, 1.0);
+
+
+}
+vec3 CalcDirLight(DirLight light, vec3 normal, vec3 viewDir) {
+	//negative to get the direction pointing from the light source TO the object
+	vec3 lightDir = normalize(-light.direction);
+	//diffuse shading
+	float diff = max(dot(normal, lightDir), 0.0);
+	vec3 reflectDir = reflect(-lightDir, normal);
 	float spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
-	float distance = length(light.position - FragPos);
-	//calculate attenuation value
+	//combine results
+	vec3 ambient = light.ambient * texture(material.diffuse, TexCoords).rgb;
+	vec3 diffuse = light.diffuse * diff * texture(material.diffuse, TexCoords).rgb;
+	vec3 specular = light.specular * spec * texture(material.specular, TexCoords).rgb;
+	return (ambient + diffuse + specular);
+
+}
+vec3 CalcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir) {
+	vec3 lightDir = normalize(light.position - fragPos);
+	float diff = max(dot(normal, lightDir), 0.0);
+	vec3 reflectDir = reflect(-lightDir, normal);
+	float spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
+	
+	//attenuation
+	float distance = length(light.position - fragPos);
+	//atten = 1 / (const + linear * distance + quad * distance^2)
 	float attenuation = 1.0 / (light.constant + light.linear * distance + light.quadratic * (distance * distance));
-	//apply attenuation across all components
+
+	vec3 ambient = light.ambient * texture(material.diffuse, TexCoords).rgb;
+	vec3 diffuse = light.diffuse * diff * texture(material.diffuse,TexCoords).rgb;
+	vec3 specular = light.specular * spec * texture(material.specular, TexCoords).rgb;
+	
+	//apply attenuation for reducing strength across distance
 	ambient *= attenuation;
 	diffuse *= attenuation;
-	spec *= attenuation;
+	specular *= attenuation;
+	return (ambient + diffuse + specular);
+}
+vec3 CalcSpotLight(SpotLight light, vec3 normal, vec3 fragPos, vec3 viewDir) {
+	vec3 lightDir = normalize(light.position - fragPos);
+	float diff = max(dot(normal, lightDir), 0.0);
+	vec3 reflectDir = reflect(-lightDir, normal);
+	float spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
+	
+	//attenuation
+	float distance = length(light.position - fragPos);
+	//atten = 1 / (const + linear * distance + quad * distance^2)
+	float attenuation = 1.0 / (light.constant + light.linear * distance + light.quadratic * (distance * distance));
+	//intensity
+	float theta = dot(lightDir, normalize(-light.direction));
+	float epsilon = light.cutOff - light.outerCutOff;
+	//I = (theta - gamma) / epsilon [0.0, 1.0]
+	float intensity = clamp((theta - light.outerCutOff) / epsilon, 0.0, 1.0);
+
+
+	vec3 ambient = light.ambient * texture(material.diffuse, TexCoords).rgb;
+	vec3 diffuse = light.diffuse * diff * texture(material.diffuse,TexCoords).rgb;
 	vec3 specular = light.specular * spec * texture(material.specular, TexCoords).rgb;
-
-	//Emission Component
-	vec3 emission = texture(material.emission, TexCoords).rgb;
-
-	//result is just the ambient + diffuse light multiplied by the color of the object (so that the light can affect the color of the object)
-	vec3 result = (ambient + diffuse + specular + emission);
-	FragColor = vec4(result, 1.0);
-	}
-	if (useSun) {
-		//Define ambient lighting
-		//ambient lighting is just a constant light applied to all objects in a scene
-		vec3 ambient = sun.ambient * texture(material.diffuse, TexCoords).rgb;
-		//diffuse impact on light is the dot product between norm and light direction vectors
-		//if our angle is greater than 90 we would end up with a negative component (which would result in negative colors), so we clamp the value to 0.0
-		vec3 norm = normalize(Normal);
-		vec3 lightDir;
-		//negated gives us the direction pointing away from the light source, not a direction pointing TO the light source
-		lightDir = normalize(-sun.direction);
-		float diff = max(dot(norm, lightDir), 0.0);
-		//get the diffuse component of the light by multiplying the diffuse strength with the light color
-		vec3 diffuse =  sun.diffuse * diff * texture(material.diffuse, TexCoords).rgb;
-
-		//Now specular lighting component
-		vec3 viewDir = normalize(viewPos - FragPos);
-		//negate the lightDir vector, since the reflect function expects the dir vector to point FROM the light source to the fragment, but lightDir is currently pointing from frag toward the light
-		//Norm can be passed in as is
-		vec3 reflectDir = reflect(-lightDir, norm);
-		//finally calculate the component
-		//32, the power we selected, is acting as our "shininess" value for the object
-		float spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
-		vec3 specular = sun.specular * spec * texture(material.specular, TexCoords).rgb;
-
-		//Emission Component
-		vec3 emission = texture(material.emission, TexCoords).rgb;
-
-		//result is just the ambient + diffuse light multiplied by the color of the object (so that the light can affect the color of the object)
-		vec3 result = (ambient + diffuse + specular + emission);
-		FragColor = vec4(result, 1.0);
-	}
-	if (useSpot) {
-		vec3 lightDir;
-		lightDir = normalize(flashlight.position - FragPos);
-		vec3 norm = normalize(Normal);
-		float theta = dot(lightDir, normalize(-flashlight.direction));
-		float epsilon = flashlight.cutOff - flashlight.outerCutOff;
-		float intensity = clamp((theta - flashlight.outerCutOff) / epsilon, 0.0, 1.0);
-		vec3 ambient = flashlight.ambient * texture(material.diffuse, TexCoords).rgb;
-		//diffuse impact on light is the dot product between norm and light direction vectors
-		//if our angle is greater than 90 we would end up with a negative component (which would result in negative colors), so we clamp the value to 0.0
-		float diff = max(dot(norm, lightDir), 0.0);
-		//get the diffuse component of the light by multiplying the diffuse strength with the light color
-		vec3 diffuse =  flashlight.diffuse * diff * texture(material.diffuse, TexCoords).rgb;
-
-		//Now specular lighting component
-		vec3 viewDir = normalize(viewPos - FragPos);
-		//negate the lightDir vector, since the reflect function expects the dir vector to point FROM the light source to the fragment, but lightDir is currently pointing from frag toward the light
-		//Norm can be passed in as is
-		vec3 reflectDir = reflect(-lightDir, norm);
-		//finally calculate the component
-		//32, the power we selected, is acting as our "shininess" value for the object
-		float spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
-		float distance = length(flashlight.position - FragPos);
-		//apply intensity, leave ambient alone so that light remains the same
-		diffuse *= intensity;
-		spec *= intensity;
-		//calculate attenuation value
-		float attenuation = 1.0 / (flashlight.constant + flashlight.linear * distance + flashlight.quadratic * (distance * distance));
-		//apply attenuation across all components
-		ambient *= attenuation;
-		diffuse *= attenuation;
-		spec *= attenuation;
-		vec3 specular = flashlight.specular * spec * texture(material.specular, TexCoords).rgb;
-
-		//Emission Component
-		vec3 emission = texture(material.emission, TexCoords).rgb;
-
-		//result is just the ambient + diffuse light multiplied by the color of the object (so that the light can affect the color of the object)
-		vec3 result = (ambient + diffuse + specular + emission);
-		FragColor = vec4(result, 1.0);
-	}
+	
+	//apply attenuation & intensity for reducing strength across distance and towards the edges of the cone
+	ambient *= attenuation * intensity;
+	diffuse *= attenuation * intensity;
+	specular *= attenuation * intensity;
+	return (ambient + diffuse + specular);
 }
